@@ -1,5 +1,7 @@
 import { useRole } from "../context/RoleContext";
 import { useRouter } from "next/router";
+import { useState, useEffect } from "react";
+import { api } from "../lib/api";
 
 const ACTIVITIES = [
   { user: "Jean Dupont", action: "Demande de congés", time: "Il y a 2h" },
@@ -9,31 +11,38 @@ const ACTIVITIES = [
 ];
 
 export default function DashboardPage() {
-  const { role } = useRole();
+  const { role, user } = useRole();
   const router = useRouter();
+  const [stats, setStats] = useState(null);
+
+  useEffect(() => {
+    if (role === "RH" || role === "Manager") {
+      api.getEmployeeStats().then((res) => setStats(res.data)).catch(() => {});
+    }
+  }, [role]);
 
   const kpis = [
     {
       label: "Nombre d'employés",
-      value: "42",
+      value: stats ? String(stats.total) : "—",
       color: "border-indigo",
       roles: ["RH"],
     },
     {
       label: "Absences aujourd'hui",
-      value: "3",
+      value: "—",
       color: "border-amber",
       roles: ["RH", "Manager"],
     },
     {
       label: "Documents récents",
-      value: "12",
+      value: "—",
       color: "border-sky",
       roles: ["RH"],
     },
     {
       label: "Congés restants",
-      value: "18 j",
+      value: "—",
       color: "border-emerald",
       roles: ["RH", "Manager", "Salarié"],
     },
@@ -58,7 +67,7 @@ export default function DashboardPage() {
     <div className="space-y-8">
       <div>
         <h2 className="text-[24px] font-bold text-gray-900">
-          Bonjour, Jean Dupont 👋
+          Bonjour, {user?.email?.split("@")[0] ?? "—"} 👋
         </h2>
         <p className="text-[14px] text-[#4B5563] mt-1">
           Voici un résumé de votre activité RH.
