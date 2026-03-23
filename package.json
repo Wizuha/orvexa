@@ -3,7 +3,9 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev",
+    "dev": "concurrently \"next dev\" \"cd backend && npm run dev\"",
+    "dev:front": "next dev",
+    "dev:back": "cd backend && npm run dev",
     "build": "next build",
     "start": "next start",
     "lint": "eslint"
@@ -17,6 +19,7 @@
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
     "babel-plugin-react-compiler": "1.0.0",
+    "concurrently": "^9.2.1",
     "eslint": "^9",
     "eslint-config-next": "16.1.6",
     "tailwindcss": "^4"
