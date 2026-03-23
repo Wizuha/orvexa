@@ -1,32 +1,7 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRole } from "../context/RoleContext";
+import { api } from "../lib/api";
 
-const REQUESTS = [
-  {
-    id: 1,
-    type: "Congés payés",
-    start: "12/03/2026",
-    end: "15/03/2026",
-    status: "Validé",
-    employee: "Jean Dupont",
-  },
-  {
-    id: 2,
-    type: "RTT",
-    start: "20/03/2026",
-    end: "20/03/2026",
-    status: "En attente",
-    employee: "Jean Dupont",
-  },
-  {
-    id: 3,
-    type: "Congés payés",
-    start: "05/04/2026",
-    end: "12/04/2026",
-    status: "Refusé",
-    employee: "Marie Curie",
-  },
-];
 const STATS = [
   { label: "Congés payés", value: "12 / 25", color: "text-indigo" },
   { label: "RTT", value: "4 / 10", color: "text-amber" },
@@ -38,9 +13,34 @@ const STATUS_STYLES = {
   Refusé: "bg-[#EF4444]/15 text-[#EF4444]",
 };
 
+const STATUS_MAP = {
+  pending: "En attente",
+  approved: "Validé",
+  rejected: "Refusé",
+};
+
 export default function AbsencesPage() {
   const { role } = useRole();
   const [currentTab, setCurrentTab] = useState("Mes demandes");
+  const [requests, setRequests] = useState([]);
+  const [loadingRequests, setLoadingRequests] = useState(true);
+
+  useEffect(() => {
+    const fetchAbsences = async () => {
+      setLoadingRequests(true);
+      try {
+        const showAll = currentTab === "Toutes les demandes" && (role === "RH" || role === "Manager");
+        const res = showAll ? await api.getAllAbsences() : await api.getMyAbsences();
+        setRequests(res.data.absences || []);
+      } catch {
+        setRequests([]);
+      } finally {
+        setLoadingRequests(false);
+      }
+    };
+    fetchAbsences();
+  }, [currentTab, role]);
+
   const tabs =
     role === "RH"
       ? ["Mes demandes", "Calendrier d'équipe", "Toutes les demandes"]
@@ -185,41 +185,77 @@ export default function AbsencesPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-[#E5E7EB]">
-              {REQUESTS.map((req) => (
+              {loadingRequests ? (
+                <tr>
+                  <td colSpan={6} className="px-6 py-8 text-center text-[14px] text-[#9CA3AF]">
+                    Chargement...
+                  </td>
+                </tr>
+              ) : requests.length === 0 ? (
+                <tr>
+                  <td colSpan={6} className="px-6 py-8 text-center text-[14px] text-[#9CA3AF]">
+                    Aucune demande.
+                  </td>
+                </tr>
+              ) : (
+              requests.map((req) => {
+                const statusLabel = STATUS_MAP[req.status] || req.status;
+                const employeeName = req.employee
+                  ? `${req.employee.firstName} ${req.employee.lastName}`
+                  : "—";
+                const startDate = new Date(req.startDate).toLocaleDateString("fr-FR");
+                const endDate = new Date(req.endDate).toLocaleDateString("fr-FR");
+                return (
                 <tr
-                  key={req.id}
+                  key={req._id}
                   className="h-[52px] hover:bg-[#F9FAFB] transition-colors"
                 >
                   <td className="px-6 py-2 text-[14px] font-semibold">
                     {req.type}
                   </td>
                   <td className="px-6 py-2 text-[14px] text-[#4B5563]">
-                    {req.start}
+                    {startDate}
                   </td>
                   <td className="px-6 py-2 text-[14px] text-[#4B5563]">
-                    {req.end}
+                    {endDate}
                   </td>
                   {role !== "Salarié" && (
                     <td className="px-6 py-2 text-[14px] text-gray-700 font-medium">
-                      {req.employee}
+                      {employeeName}
                     </td>
                   )}
                   <td className="px-6 py-2">
                     <span
                       className={`px-3 py-1 rounded-full text-[12px] font-semibold uppercase tracking-wider ${
-                        STATUS_STYLES[req.status]
+                        STATUS_STYLES[statusLabel]
                       }`}
                     >
-                      {req.status}
+                      {statusLabel}
                     </span>
                   </td>
                   <td className="px-6 py-2 text-right">
-                    {role !== "Salarié" && req.status === "En attente" ? (
+                    {role !== "Salarié" && req.status === "pending" ? (
                       <div className="flex justify-end gap-2">
-                        <button className="w-[90px] h-[32px] border border-[#10B981] text-[#10B981] rounded-[6px] text-[12px] font-bold hover:bg-[#10B981] hover:text-white transition-all">
+                        <button
+                          onClick={async () => {
+                            await api.approveAbsence(req._id);
+                            setRequests((prev) =>
+                              prev.map((r) => r._id === req._id ? { ...r, status: "approved" } : r)
+                            );
+                          }}
+                          className="w-[90px] h-[32px] border border-[#10B981] text-[#10B981] rounded-[6px] text-[12px] font-bold hover:bg-[#10B981] hover:text-white transition-all"
+                        >
                           ✓ Accepter
                         </button>
-                        <button className="w-[80px] h-[32px] border border-[#EF4444] text-[#EF4444] rounded-[6px] text-[12px] font-bold hover:bg-[#EF4444] hover:text-white transition-all">
+                        <button
+                          onClick={async () => {
+                            await api.rejectAbsence(req._id);
+                            setRequests((prev) =>
+                              prev.map((r) => r._id === req._id ? { ...r, status: "rejected" } : r)
+                            );
+                          }}
+                          className="w-[80px] h-[32px] border border-[#EF4444] text-[#EF4444] rounded-[6px] text-[12px] font-bold hover:bg-[#EF4444] hover:text-white transition-all"
+                        >
                           ✕ Refuser
                         </button>
                       </div>
@@ -230,7 +266,9 @@ export default function AbsencesPage() {
                     )}
                   </td>
                 </tr>
-              ))}
+                );
+              })
+              )}
             </tbody>
           </table>
         </div>

@@ -6,24 +6,22 @@ export default function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
-  const [error, setError] = useState(false);
-  const { login, setRole } = useRole();
+  const [error, setError] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const { login } = useRole();
   const router = useRouter();
 
-  const handleLogin = (e) => {
+  const handleLogin = async (e) => {
     e.preventDefault();
-    if (email && password) {
-      if (email.toLowerCase().includes("manager")) setRole("Manager");
-      else if (
-        email.toLowerCase().includes("employe") ||
-        email.toLowerCase().includes("salarie")
-      )
-        setRole("Salarié");
-      else setRole("RH");
-      login();
+    setError("");
+    setSubmitting(true);
+    try {
+      await login(email, password);
       router.push("/dashboard");
-    } else {
-      setError(true);
+    } catch (err) {
+      setError(err.message || "Identifiants incorrects. Veuillez réessayer.");
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -47,7 +45,7 @@ export default function LoginPage() {
               value={email}
               onChange={(e) => {
                 setEmail(e.target.value);
-                setError(false);
+                setError("");
               }}
               className={`w-full h-[40px] px-3 border rounded-[6px] text-[14px] focus:outline-none transition-colors ${
                 error
@@ -75,7 +73,7 @@ export default function LoginPage() {
               value={password}
               onChange={(e) => {
                 setPassword(e.target.value);
-                setError(false);
+                setError("");
               }}
               className={`w-full h-[40px] px-3 border rounded-[6px] text-[14px] focus:outline-none transition-colors ${
                 error
@@ -95,19 +93,17 @@ export default function LoginPage() {
           </div>
           <button
             type="submit"
-            className="w-full h-[44px] bg-indigo text-white rounded-[8px] font-bold uppercase tracking-wider hover:bg-indigo-dark transition-colors shadow-sm"
+            disabled={submitting}
+            className="w-full h-[44px] bg-indigo text-white rounded-[8px] font-bold uppercase tracking-wider hover:bg-indigo-dark transition-colors shadow-sm disabled:opacity-60 disabled:cursor-not-allowed"
           >
-            Se connecter
+            {submitting ? "Connexion..." : "Se connecter"}
           </button>
           {error && (
             <div className="animate-slide-in p-3 bg-[#EF4444]/10 border-l-[3px] border-[#EF4444] rounded-r-[4px] text-[#EF4444] text-[13px] font-medium">
-              Identifiants incorrects. Veuillez réessayer.
+              {error}
             </div>
           )}
         </form>
-        <p className="text-center text-[11px] text-[#9CA3AF] mt-6">
-          Astuce : utilisez "rh@", "manager@" ou "salarie@" pour changer de rôle
-        </p>
       </div>
     </div>
   );
